@@ -89,6 +89,7 @@ button = RadioButtons(axButton, ('E-field', 'H-field'))
 
 
 
+# Time to find out how the hell the H-fields shall work...
 # ********************************************
 # ****** Functions for the fields ************
 # ********************************************
