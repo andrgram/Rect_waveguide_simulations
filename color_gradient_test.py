@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, RadioButtons
+import matplotlib.streamplot as spl
 
 import timeit
 startTime = timeit.default_timer()
@@ -29,6 +30,7 @@ def printProgress(var, minVal, maxVal):
 # TODO Boundary cases.
 # TODO Axis text
 # TODO The H-fields are completely screwed up...
+# TODO Examine quiver plots and streamplots
 
 
 
@@ -96,7 +98,7 @@ button = RadioButtons(axButton, ('E-field', 'H-field'))
 # x,y from 0 to 1 for plotting over the waveguide
 # m and n are the modes
 def H(x,y,m=1,n=0):
-    H_x = 1j * m * np.sin(m * np.pi * x) * np.cos(m * np.pi * y)
+    H_x = 1j * m * np.sin(m * np.pi * x) * np.cos(n * np.pi * y)
     H_y = 1j * n * np.cos(m * np.pi * x) * np.sin(n * np.pi * y)
     H_z = np.cos(m * np.pi * x) * np.cos(n * np.pi * y)
     return [H_x, H_y, H_z]
@@ -154,22 +156,59 @@ def update(val):
 
     clearTime = timeit.default_timer()
 
+    # Deciding whether to plot the E-field or the H-field
     if field:
-        XYfieldPlane = np.array([[np.abs((E_mag := E_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0] + E_mag[1] + E_mag[2]) for x in x_range] for y in y_range])
-        XZfieldPlane = np.array([[np.abs((E_mag := E_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0] + E_mag[1] + E_mag[2]) for z in z_range] for x in x_range])
-        YZfieldPlane = np.array([[np.abs((E_mag := E_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0] + E_mag[1] + E_mag[2]) for z in z_range] for y in y_range])
-    else:
-        XYfieldPlane = np.array([[np.abs((H_mag := H_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0] + H_mag[1] + H_mag[2]) for x in x_range] for y in y_range])
-        XZfieldPlane = np.array([[np.abs((H_mag := H_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0] + H_mag[1] + H_mag[2]) for z in z_range] for x in x_range])
-        YZfieldPlane = np.array([[np.abs((H_mag := H_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0] + H_mag[1] + H_mag[2]) for z in z_range] for y in y_range])
-
+        XYfieldPlane = np.array([[np.sqrt((E_mag := E_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0]**2 + E_mag[1]**2 + E_mag[2]**2) for x in x_range] for y in y_range])
+        XZfieldPlane = np.array([[np.sqrt((E_mag := E_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0]**2 + E_mag[1]**2 + E_mag[2]**2) for z in z_range] for x in x_range])
+        YZfieldPlane = np.array([[np.sqrt((E_mag := E_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0]**2 + E_mag[1]**2 + E_mag[2]**2) for z in z_range] for y in y_range])
         
+        field_XY = np.array([[[(E_mag := E_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for x in x_range] for y in y_range])
+        field_XZ = np.array([[[(E_mag := E_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for z in z_range] for x in x_range])
+        field_YZ = np.array([[[(E_mag := E_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for z in z_range] for y in y_range])
+        XYmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_XY])
+        XZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_XZ])
+        YZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_YZ])
+
+        field_XY = np.transpose(field_XY, (2,0,1))
+        field_XZ = np.transpose(field_XZ, (2,0,1))
+        field_YZ = np.transpose(field_YZ, (2,0,1))
+
+
+    else:
+        XYfieldPlane = np.array([[np.sqrt((H_mag := H_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0]**2 + H_mag[1]**2 + H_mag[2]**2) for x in x_range] for y in y_range])
+        XZfieldPlane = np.array([[np.sqrt((H_mag := H_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0]**2 + H_mag[1]**2 + H_mag[2]**2) for z in z_range] for x in x_range])
+        YZfieldPlane = np.array([[np.sqrt((H_mag := H_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0]**2 + H_mag[1]**2 + H_mag[2]**2) for z in z_range] for y in y_range])
+
+        # TODO Change E_mag to H_mag. At some point...
+        field_XY = np.array([[[(E_mag := H_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for x in x_range] for y in y_range])
+        field_XZ = np.array([[[(E_mag := H_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for z in z_range] for x in x_range])
+        field_YZ = np.array([[[(E_mag := H_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for z in z_range] for y in y_range])
+        XYmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_XY])
+        XZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_XZ])
+        YZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_YZ])
+
+        field_XY = np.transpose(field_XY, (2,0,1))
+        field_XZ = np.transpose(field_XZ, (2,0,1))
+        field_YZ = np.transpose(field_YZ, (2,0,1))
+
 
     calculateTime = timeit.default_timer()
 
-    axXY.contourf(XYplane[0], XYplane[1], XYfieldPlane, 100, vmin=0, vmax=1)
-    axXZ.contourf(XZplane[0], XZplane[1], XZfieldPlane, 100, vmin=0, vmax=1)
-    axYZ.contourf(YZplane[0], YZplane[1], YZfieldPlane, 100, vmin=0, vmax=1)
+
+    axXY.contourf(XYplane[0], XYplane[1], XYmagPlane, 100, vmin=0, vmax=1)
+    axXZ.contourf(XZplane[0], XZplane[1], XZmagPlane, 100, vmin=0, vmax=1)
+    axYZ.contourf(YZplane[0], YZplane[1], YZmagPlane, 100, vmin=0, vmax=1)
+
+
+
+    # axXY.streamplot(XYplane[0], XYplane[1], xystream_xvel, xystream_yvel, color=np.sqrt(xystream_yvel**2 + xystream_xvel**2), cmap='plasma')
+    # axYZ.quiver(YZplane[0], YZplane[1], yzstream_zvel, yzstream_yvel, np.sqrt(yzstream_zvel**2 + yzstream_yvel**2), cmap='plasma')
+    # axXZ.quiver(XZplane[0], XZplane[1], xzstream_zvel, xzstream_xvel, np.sqrt(xzstream_zvel**2 + xzstream_xvel**2), cmap='plasma')
+    axXY.quiver(XYplane[0], XYplane[1], field_XY[0], field_XY[1]) #, np.sqrt(yzstream_zvel**2 + yzstream_yvel**2), cmap='plasma')
+    axYZ.quiver(YZplane[0], YZplane[1], field_YZ[2], field_YZ[1]) #, np.sqrt(yzstream_zvel**2 + yzstream_yvel**2), cmap='plasma')
+    axXZ.quiver(XZplane[0], XZplane[1], field_XZ[2], field_XZ[0]) #, np.sqrt(xzstream_zvel**2 + xzstream_xvel**2), cmap='plasma')
+
+    # axYZ.yaxis.set_ticks([])
 
     drawTime = timeit.default_timer()
 
