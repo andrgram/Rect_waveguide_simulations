@@ -29,17 +29,19 @@ def printProgress(var, minVal, maxVal):
 # TODO Runtime optimalizations....
 # TODO Boundary cases.
 # TODO Axis text
-# TODO The H-fields are completely screwed up...
 # TODO Examine quiver plots and streamplots
+# TODO Button for crosshairs and for the background contour
+# TODO clim for the streamplot
 
 
 
 
-points = 20
+quiverPoints = 10
+points = 10
 x_points = points
 y_points = points
-z_points = points
-t_points = points
+z_points = int(points * 2 * np.pi)
+t_points = int(points * 2 * np.pi)
 # x_points = 10
 # y_points = 10
 # z_points = 50
@@ -86,17 +88,17 @@ axMmode = fig.add_axes([axXY.get_position().x0, axXY.get_position().y0 - 0.1, ax
 mMode_slider = Slider(axMmode, 'modes in x-direction', 0, 4, 1, valstep=1)
 axNmode = fig.add_axes([axXY.get_position().x0, axXY.get_position().y0 - 0.15, axXY.get_position().width, 0.05])
 nMode_slider = Slider(axNmode, 'modes in y-direction', 0, 4, 0, valstep=1)
-axButton = fig.add_axes([axXY.get_position().x0, axXY.get_position().y0 - 0.3, 0.05, 0.1])
-button = RadioButtons(axButton, ('E-field', 'H-field'))
+axFieldButton = fig.add_axes([axXY.get_position().x0, axXY.get_position().y0 - 0.3, 0.05, 0.1])
+fieldButton = RadioButtons(axFieldButton, ('E-field', 'H-field'))
+axPlotButton = fig.add_axes([axXY.get_position().x0 + 0.1, axXY.get_position().y0 - 0.3, 0.05, 0.1])
+plotButton = RadioButtons(axPlotButton, ('Arrow plot', 'Streamplot'))
 
 
 
-# Time to find out how the hell the H-fields shall work...
 # ********************************************
 # ****** Functions for the fields ************
 # ********************************************
-# x,y from 0 to 1 for plotting over the waveguide
-# m and n are the modes
+# Field and wave Electromagnetics p.553
 def H(x,y,m=1,n=0):
     H_x = 1j * m * np.sin(m * np.pi * x) * np.cos(n * np.pi * y)
     H_y = 1j * n * np.cos(m * np.pi * x) * np.sin(n * np.pi * y)
@@ -140,13 +142,6 @@ def drawCrosshairs(x,y,z):
 # Are the clear operations needed?
 # They are needed when using the crosshairs!
 def update(val):
-    global field
-    if val == 'E-field':
-        field = 1
-    elif val == 'H-field':
-        field = 0
-
-
 
     startTime = timeit.default_timer()
 
@@ -157,14 +152,11 @@ def update(val):
     clearTime = timeit.default_timer()
 
     # Deciding whether to plot the E-field or the H-field
-    if field:
-        XYfieldPlane = np.array([[np.sqrt((E_mag := E_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0]**2 + E_mag[1]**2 + E_mag[2]**2) for x in x_range] for y in y_range])
-        XZfieldPlane = np.array([[np.sqrt((E_mag := E_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0]**2 + E_mag[1]**2 + E_mag[2]**2) for z in z_range] for x in x_range])
-        YZfieldPlane = np.array([[np.sqrt((E_mag := E_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0]**2 + E_mag[1]**2 + E_mag[2]**2) for z in z_range] for y in y_range])
-        
+    if fieldButton.value_selected == 'E-field':
         field_XY = np.array([[[(E_mag := E_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for x in x_range] for y in y_range])
         field_XZ = np.array([[[(E_mag := E_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for z in z_range] for x in x_range])
         field_YZ = np.array([[[(E_mag := E_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for z in z_range] for y in y_range])
+        
         XYmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_XY])
         XZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_XZ])
         YZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_YZ])
@@ -173,16 +165,11 @@ def update(val):
         field_XZ = np.transpose(field_XZ, (2,0,1))
         field_YZ = np.transpose(field_YZ, (2,0,1))
 
-
     else:
-        XYfieldPlane = np.array([[np.sqrt((H_mag := H_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0]**2 + H_mag[1]**2 + H_mag[2]**2) for x in x_range] for y in y_range])
-        XZfieldPlane = np.array([[np.sqrt((H_mag := H_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0]**2 + H_mag[1]**2 + H_mag[2]**2) for z in z_range] for x in x_range])
-        YZfieldPlane = np.array([[np.sqrt((H_mag := H_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0]**2 + H_mag[1]**2 + H_mag[2]**2) for z in z_range] for y in y_range])
-
-        # TODO Change E_mag to H_mag. At some point...
-        field_XY = np.array([[[(E_mag := H_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for x in x_range] for y in y_range])
-        field_XZ = np.array([[[(E_mag := H_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for z in z_range] for x in x_range])
-        field_YZ = np.array([[[(E_mag := H_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for z in z_range] for y in y_range])
+        field_XY = np.array([[[(H_mag := H_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], H_mag[1], H_mag[2]] for x in x_range] for y in y_range])
+        field_XZ = np.array([[[(H_mag := H_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], H_mag[1], H_mag[2]] for z in z_range] for x in x_range])
+        field_YZ = np.array([[[(H_mag := H_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], H_mag[1], H_mag[2]] for z in z_range] for y in y_range])
+        
         XYmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_XY])
         XZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_XZ])
         YZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_YZ])
@@ -195,20 +182,25 @@ def update(val):
     calculateTime = timeit.default_timer()
 
 
+    # Contour plot for the background
     axXY.contourf(XYplane[0], XYplane[1], XYmagPlane, 100, vmin=0, vmax=1)
     axXZ.contourf(XZplane[0], XZplane[1], XZmagPlane, 100, vmin=0, vmax=1)
     axYZ.contourf(YZplane[0], YZplane[1], YZmagPlane, 100, vmin=0, vmax=1)
 
+    if plotButton.value_selected == 'Arrow plot':
+        # Quiver plot
+        axXY.quiver(XYplane[0], XYplane[1], field_XY[0], field_XY[1], XYmagPlane, cmap='turbo', clim=[0,1])
+        axYZ.quiver(YZplane[0], YZplane[1], field_YZ[2], field_YZ[1], YZmagPlane, cmap='turbo', clim=[0,1])
+        axXZ.quiver(XZplane[0], XZplane[1], field_XZ[2], field_XZ[0], XZmagPlane, cmap='turbo', clim=[0,1])
 
+    else:
+        # Stream plot
+        axXY.streamplot(XYplane[0], XYplane[1], field_XY[0], field_XY[1], color=XYmagPlane, cmap='turbo')#, density=0.5)
+        axYZ.streamplot(YZplane[0], YZplane[1], field_YZ[2], field_YZ[1], color=YZmagPlane, cmap='turbo')#, density=0.5)
+        axXZ.streamplot(XZplane[0], XZplane[1], field_XZ[2], field_XZ[0], color=XZmagPlane, cmap='turbo')#, density=0.5)
 
-    # axXY.streamplot(XYplane[0], XYplane[1], xystream_xvel, xystream_yvel, color=np.sqrt(xystream_yvel**2 + xystream_xvel**2), cmap='plasma')
-    # axYZ.quiver(YZplane[0], YZplane[1], yzstream_zvel, yzstream_yvel, np.sqrt(yzstream_zvel**2 + yzstream_yvel**2), cmap='plasma')
-    # axXZ.quiver(XZplane[0], XZplane[1], xzstream_zvel, xzstream_xvel, np.sqrt(xzstream_zvel**2 + xzstream_xvel**2), cmap='plasma')
-    axXY.quiver(XYplane[0], XYplane[1], field_XY[0], field_XY[1]) #, np.sqrt(yzstream_zvel**2 + yzstream_yvel**2), cmap='plasma')
-    axYZ.quiver(YZplane[0], YZplane[1], field_YZ[2], field_YZ[1]) #, np.sqrt(yzstream_zvel**2 + yzstream_yvel**2), cmap='plasma')
-    axXZ.quiver(XZplane[0], XZplane[1], field_XZ[2], field_XZ[0]) #, np.sqrt(xzstream_zvel**2 + xzstream_xvel**2), cmap='plasma')
+    # TODO Check if there is an error on the x/y density in streamplot
 
-    # axYZ.yaxis.set_ticks([])
 
     drawTime = timeit.default_timer()
 
@@ -223,6 +215,7 @@ def update(val):
     titleTime = timeit.default_timer()
 
     plt.draw()
+
     totalTime = timeit.default_timer()
     print('Clearing took', round((clearTime - startTime)*1000), 'ms')
     print('Calculations took', round((calculateTime - clearTime)*1000), 'ms')
@@ -232,17 +225,21 @@ def update(val):
     print('The draw command took', round((totalTime - titleTime)*1000), 'ms')
     print('Total function time:', round((totalTime - startTime)*1000), 'ms\n')
 
-field = 1
+E_field = 1
 
 update(0)
 
+
+# ********************************************
+# ****** Change handler **********************
+# ********************************************
 xCoord_slider.on_changed(update)
 yCoord_slider.on_changed(update)
 zCoord_slider.on_changed(update)
 tCoord_slider.on_changed(update)
 mMode_slider.on_changed(update)
 nMode_slider.on_changed(update)
-button.on_clicked(update)
+fieldButton.on_clicked(update)
+plotButton.on_clicked(update)
 
-# plt.colorbar()
 plt.show()
