@@ -69,7 +69,7 @@ backgButton = CheckButtons(axBackgButton, ['Background fields', 'Crosshairs'], a
 # ********************************************
 # ****** Functions for the fields ************
 # ********************************************
-# Field and wave Electromagnetics p.553
+# Field and wave Electromagnetics p.553, TE propagation in rectangular waveguides
 def H(x,y,m=1,n=0):
     H_x = 1j * m * np.sin(m * np.pi * x) * np.cos(n * np.pi * y)
     H_y = 1j * n * np.cos(m * np.pi * x) * np.sin(n * np.pi * y)
@@ -99,6 +99,53 @@ def E_ins(x,y,z,t,m=1,n=0):
 
 
 
+# ***************************************************************
+# ****** Calculate the fields in the planes examined ************
+# ***************************************************************
+def calculateFields():
+    # Calculating the fields in either E or H
+    if fieldButton.value_selected == 'E-field':
+        XYplaneField = np.array([[[(E_mag := E_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for x in x_range] for y in y_range])
+        XZplaneField = np.array([[[(E_mag := E_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for z in z_range] for x in x_range])
+        YZplaneField = np.array([[[(E_mag := E_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for z in z_range] for y in y_range])
+        
+    else:
+        XYplaneField = np.array([[[(H_mag := H_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], H_mag[1], H_mag[2]] for x in x_range] for y in y_range])
+        XZplaneField = np.array([[[(H_mag := H_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], H_mag[1], H_mag[2]] for z in z_range] for x in x_range])
+        YZplaneField = np.array([[[(H_mag := H_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], H_mag[1], H_mag[2]] for z in z_range] for y in y_range])
+
+    # Generate the field magnitude plot from the field vector plots 
+    XYplaneMag = np.array([[np.sqrt(x**2 + y**2 + z**2) for x,y,z in row] for row in XYplaneField])
+    XZplaneMag = np.array([[np.sqrt(x**2 + y**2 + z**2) for x,y,z in row] for row in XZplaneField])
+    YZplaneMag = np.array([[np.sqrt(x**2 + y**2 + z**2) for x,y,z in row] for row in YZplaneField])
+    
+    # Transposing the array of field vectors to make it easier to split out the x, y and z components as needed
+    XYplaneField = np.transpose(XYplaneField, (2,0,1))
+    XZplaneField = np.transpose(XZplaneField, (2,0,1))
+    YZplaneField = np.transpose(YZplaneField, (2,0,1))
+
+    return  XYplaneField, XZplaneField, YZplaneField, XYplaneMag, XZplaneMag, YZplaneMag
+
+
+
+# ********************************************
+# ****** Drawing the windows *****************
+# ********************************************
+def drawContour(XYplaneMag, XZplaneMag, YZplaneMag, Norm):
+    axXY.contourf(XYplane[0], XYplane[1], XYplaneMag, 100, norm=Norm)
+    axXZ.contourf(XZplane[0], XZplane[1], XZplaneMag, 100, norm=Norm)
+    axYZ.contourf(YZplane[0], YZplane[1], YZplaneMag, 100, norm=Norm)
+
+def drawQuiver(XYplaneField, XZplaneField, YZplaneField, XYplaneMag, XZplaneMag, YZplaneMag, Norm):
+    axXY.quiver(XYplane[0], XYplane[1], XYplaneField[0], XYplaneField[1], XYplaneMag, cmap='turbo', norm=Norm)
+    axXZ.quiver(XZplane[0], XZplane[1], XZplaneField[2], XZplaneField[0], XZplaneMag, cmap='turbo', norm=Norm)
+    axYZ.quiver(YZplane[0], YZplane[1], YZplaneField[2], YZplaneField[1], YZplaneMag, cmap='turbo', norm=Norm)
+
+def drawStreamlines(XYplaneField, XZplaneField, YZplaneField, XYplaneMag, XZplaneMag, YZplaneMag, Norm):
+    axXY.streamplot(XYplane[0], XYplane[1], XYplaneField[0], XYplaneField[1], color=XYplaneMag, cmap='turbo', norm=Norm)
+    axXZ.streamplot(XZplane[0], XZplane[1], XZplaneField[2], XZplaneField[0], color=XZplaneMag, cmap='turbo', norm=Norm)
+    axYZ.streamplot(YZplane[0], YZplane[1], YZplaneField[2], YZplaneField[1], color=YZplaneMag, cmap='turbo', norm=Norm)
+
 def drawCrosshairs(x,y,z):
     axXY.axhline(y, color='red')
     axXY.axvline(x, color='red')
@@ -114,34 +161,7 @@ def update(val):
     axXZ.clear()
     axYZ.clear()
 
-    # Deciding whether to plot the E-field or the H-field
-    if fieldButton.value_selected == 'E-field':
-        XYfield = np.array([[[(E_mag := E_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for x in x_range] for y in y_range])
-        XZfield = np.array([[[(E_mag := E_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for z in z_range] for x in x_range])
-        YZfield = np.array([[[(E_mag := E_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for z in z_range] for y in y_range])
-        
-        XYmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in XYfield])
-        XZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in XZfield])
-        YZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in YZfield])
-        # XYmagPlane = np.array([[np.sqrt(x**2 + y**2 + z**2) for x,y,z in row] for row in YZfield])
-
-        XYfield = np.transpose(XYfield, (2,0,1))
-        XZfield = np.transpose(XZfield, (2,0,1))
-        YZfield = np.transpose(YZfield, (2,0,1))
-
-    else:
-        XYfield = np.array([[[(H_mag := H_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], H_mag[1], H_mag[2]] for x in x_range] for y in y_range])
-        XZfield = np.array([[[(H_mag := H_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], H_mag[1], H_mag[2]] for z in z_range] for x in x_range])
-        YZfield = np.array([[[(H_mag := H_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], H_mag[1], H_mag[2]] for z in z_range] for y in y_range])
-        
-        XYmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in XYfield])
-        XZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in XZfield])
-        YZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in YZfield])
-
-        XYfield = np.transpose(XYfield, (2,0,1))
-        XZfield = np.transpose(XZfield, (2,0,1))
-        YZfield = np.transpose(YZfield, (2,0,1))
-
+    XYplaneField, XZplaneField, YZplaneField, XYplaneMag, XZplaneMag,YZplaneMag = calculateFields()
 
     # Color normalization
     vMax = max(nMode_slider.val,mMode_slider.val)
@@ -149,31 +169,22 @@ def update(val):
 
     # Contour plot for the background
     if backgButton.get_status()[0]:
-        axXY.contourf(XYplane[0], XYplane[1], XYmagPlane, 100, norm=Norm)
-        axXZ.contourf(XZplane[0], XZplane[1], XZmagPlane, 100, norm=Norm)
-        axYZ.contourf(YZplane[0], YZplane[1], YZmagPlane, 100, norm=Norm)
+        drawContour(XYplaneMag, XZplaneMag, YZplaneMag, Norm)
 
     # Quiver plot
     if plotButton.value_selected == 'Arrow plot':
-        axXY.quiver(XYplane[0], XYplane[1], XYfield[0], XYfield[1], XYmagPlane, cmap='turbo', norm=Norm)
-        axYZ.quiver(YZplane[0], YZplane[1], YZfield[2], YZfield[1], YZmagPlane, cmap='turbo', norm=Norm)
-        axXZ.quiver(XZplane[0], XZplane[1], XZfield[2], XZfield[0], XZmagPlane, cmap='turbo', norm=Norm)
+        drawQuiver(XYplaneField, XZplaneField, YZplaneField, XYplaneMag, XZplaneMag,YZplaneMag, Norm)
     
     # Stream plot (This one takes a lot longer to draw. The plot becomes very unresponsive...)
     elif plotButton.value_selected == 'Streamplot':
-        axXY.streamplot(XYplane[0], XYplane[1], XYfield[0], XYfield[1], color=XYmagPlane, cmap='turbo', norm=Norm)
-        axYZ.streamplot(YZplane[0], YZplane[1], YZfield[2], YZfield[1], color=YZmagPlane, cmap='turbo', norm=Norm)
-        axXZ.streamplot(XZplane[0], XZplane[1], XZfield[2], XZfield[0], color=XZmagPlane, cmap='turbo', norm=Norm)
-
+        drawStreamlines(XYplaneField, XZplaneField, YZplaneField, XYplaneMag, XZplaneMag,YZplaneMag, Norm)
 
     if backgButton.get_status()[1]:
         drawCrosshairs(xCoord_slider.val, yCoord_slider.val, zCoord_slider.val)
-
     
     axXY.set_title('x-y plane')
     axYZ.set_title('y-z plane')
     axXZ.set_title('x-z plane')
-
 
     plt.draw()
 
