@@ -1,51 +1,20 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, RadioButtons
-import matplotlib.streamplot as spl
-
-import timeit
-startTime = timeit.default_timer()
-endTime = timeit.default_timer()
-
-# Prints status every second
-def printProgress(var, minVal, maxVal):
-    global endTime
-    currTime = timeit.default_timer()
-    if currTime - endTime > 1:
-        length = maxVal - minVal
-        progress = int((var-minVal)/ length*100)
-        timeLeft = int((currTime - startTime) * ((maxVal-(var+1))/((var+1)-minVal)))
-        yearString = str(timeLeft // 31536000)+"y, " if timeLeft > 31536000 else ""
-        dayString = str(timeLeft % 31536000 // 86400)+"d, " if timeLeft > 86400 else ""
-        hourString = str(timeLeft % 86400 // 3600)+"h, " if timeLeft > 3600 else ""
-        minuteString = str(timeLeft % 3600 // 60)+"m, " if timeLeft > 60 else ""
-        secondString = str(timeLeft % 60)+"s"
-        timeLeftString = yearString + dayString + hourString + minuteString + secondString
-        print("runTime: "+str(int((currTime - startTime)))+"s. Progress: "+str(progress)+"%, "+str((var)-minVal)+"/"+str(length)+" calculations complete. Estimated time remaining: "+timeLeftString+"                          ", end="\r")
-        endTime = currTime
+import matplotlib.colors as colors
+from matplotlib.widgets import Slider, RadioButtons, CheckButtons
 
 
-# TODO Find out about the slider color gradient...
+
 # TODO Runtime optimalizations....
-# TODO Boundary cases.
-# TODO Axis text
 # TODO Examine quiver plots and streamplots
-# TODO Button for crosshairs and for the background contour
-# TODO clim for the streamplot
 
 
-
-
-quiverPoints = 10
+# Number of sample points
 points = 10
 x_points = points
 y_points = points
 z_points = int(points * 2 * np.pi)
 t_points = int(points * 2 * np.pi)
-# x_points = 10
-# y_points = 10
-# z_points = 50
-# t_points = 50
 
 x_range = np.linspace(0, 1, x_points)
 y_range = np.linspace(0, 1, y_points)
@@ -67,7 +36,7 @@ fig.delaxes(axEmpty)
 
 
 # ********************************************
-# ****** Setup for the sliders ***************
+# ****** Setup for the sliders and buttons ***
 # ********************************************
 axXcoord = fig.add_axes([0.15, 0.15, 0.7, 0.05]) # x,y offset for the center of the slider, width and height.
 xCoord_slider = Slider(
@@ -79,19 +48,21 @@ xCoord_slider = Slider(
     valstep=1/x_points
 )
 axYcoord = fig.add_axes([0.15, 0.1, 0.7, 0.05])
-yCoord_slider = Slider(axYcoord, 'y-coordinate', 0, 1, 0.5, valstep=1/y_points)
+yCoord_slider = Slider(axYcoord, 'y-coordinate', 0, 1, valinit=0.5, valstep=1/y_points)
 axZcoord = fig.add_axes([0.15, 0.05, 0.7, 0.05])
-zCoord_slider = Slider(axZcoord, 'z-coordinate', 0, 2*np.pi, 0, valstep=2*np.pi/z_points)
+zCoord_slider = Slider(axZcoord, 'z-coordinate', 0, 2*np.pi, valinit=0, valstep=2*np.pi/z_points)
 axTcoord = fig.add_axes([0.15, 0, 0.7, 0.05])
-tCoord_slider = Slider(axTcoord, 'time', 0, 2*np.pi, 0, valstep=2*np.pi/t_points)
+tCoord_slider = Slider(axTcoord, 'time', 0, 2*np.pi, valinit=0, valstep=2*np.pi/t_points)
 axMmode = fig.add_axes([axXY.get_position().x0, axXY.get_position().y0 - 0.1, axXY.get_position().width, 0.05])
-mMode_slider = Slider(axMmode, 'modes in x-direction', 0, 4, 1, valstep=1)
+mMode_slider = Slider(axMmode, 'modes in x-direction', 0, 4, valinit=1, valstep=1)
 axNmode = fig.add_axes([axXY.get_position().x0, axXY.get_position().y0 - 0.15, axXY.get_position().width, 0.05])
-nMode_slider = Slider(axNmode, 'modes in y-direction', 0, 4, 0, valstep=1)
-axFieldButton = fig.add_axes([axXY.get_position().x0, axXY.get_position().y0 - 0.3, 0.05, 0.1])
+nMode_slider = Slider(axNmode, 'modes in y-direction', 0, 4, valinit=0, valstep=1)
+axFieldButton = fig.add_axes([axXY.get_position().x0 - 0.05, axXY.get_position().y0 - 0.3, 0.05, 0.1])
 fieldButton = RadioButtons(axFieldButton, ('E-field', 'H-field'))
-axPlotButton = fig.add_axes([axXY.get_position().x0 + 0.1, axXY.get_position().y0 - 0.3, 0.05, 0.1])
-plotButton = RadioButtons(axPlotButton, ('Arrow plot', 'Streamplot'))
+axPlotButton = fig.add_axes([axXY.get_position().x0 + 0.01, axXY.get_position().y0 - 0.3, 0.07, 0.1])
+plotButton = RadioButtons(axPlotButton, ('Arrow plot', 'Streamplot', 'No Arrows'))
+axBackgButton = fig.add_axes([axXY.get_position().x0 + 0.09, axXY.get_position().y0 - 0.3, 0.11, 0.1])
+backgButton = CheckButtons(axBackgButton, ['Background fields', 'Crosshairs'], actives=[True, True])
 
 
 
@@ -128,7 +99,6 @@ def E_ins(x,y,z,t,m=1,n=0):
 
 
 
-# There should be a button for activating or deactivating this!
 def drawCrosshairs(x,y,z):
     axXY.axhline(y, color='red')
     axXY.axvline(x, color='red')
@@ -138,100 +108,81 @@ def drawCrosshairs(x,y,z):
     axYZ.axvline(z, color='red')
 
 
-
-# Are the clear operations needed?
-# They are needed when using the crosshairs!
 def update(val):
-
-    startTime = timeit.default_timer()
 
     axXY.clear()
     axXZ.clear()
     axYZ.clear()
 
-    clearTime = timeit.default_timer()
-
     # Deciding whether to plot the E-field or the H-field
     if fieldButton.value_selected == 'E-field':
-        field_XY = np.array([[[(E_mag := E_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for x in x_range] for y in y_range])
-        field_XZ = np.array([[[(E_mag := E_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for z in z_range] for x in x_range])
-        field_YZ = np.array([[[(E_mag := E_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for z in z_range] for y in y_range])
+        XYfield = np.array([[[(E_mag := E_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for x in x_range] for y in y_range])
+        XZfield = np.array([[[(E_mag := E_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for z in z_range] for x in x_range])
+        YZfield = np.array([[[(E_mag := E_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], E_mag[1], E_mag[2]] for z in z_range] for y in y_range])
         
-        XYmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_XY])
-        XZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_XZ])
-        YZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_YZ])
+        XYmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in XYfield])
+        XZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in XZfield])
+        YZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in YZfield])
+        # XYmagPlane = np.array([[np.sqrt(x**2 + y**2 + z**2) for x,y,z in row] for row in YZfield])
 
-        field_XY = np.transpose(field_XY, (2,0,1))
-        field_XZ = np.transpose(field_XZ, (2,0,1))
-        field_YZ = np.transpose(field_YZ, (2,0,1))
+        XYfield = np.transpose(XYfield, (2,0,1))
+        XZfield = np.transpose(XZfield, (2,0,1))
+        YZfield = np.transpose(YZfield, (2,0,1))
 
     else:
-        field_XY = np.array([[[(H_mag := H_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], H_mag[1], H_mag[2]] for x in x_range] for y in y_range])
-        field_XZ = np.array([[[(H_mag := H_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], H_mag[1], H_mag[2]] for z in z_range] for x in x_range])
-        field_YZ = np.array([[[(H_mag := H_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], H_mag[1], H_mag[2]] for z in z_range] for y in y_range])
+        XYfield = np.array([[[(H_mag := H_ins(x,y,zCoord_slider.val,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], H_mag[1], H_mag[2]] for x in x_range] for y in y_range])
+        XZfield = np.array([[[(H_mag := H_ins(x,yCoord_slider.val,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], H_mag[1], H_mag[2]] for z in z_range] for x in x_range])
+        YZfield = np.array([[[(H_mag := H_ins(xCoord_slider.val,y,z,tCoord_slider.val,mMode_slider.val,nMode_slider.val))[0], H_mag[1], H_mag[2]] for z in z_range] for y in y_range])
         
-        XYmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_XY])
-        XZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_XZ])
-        YZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in field_YZ])
+        XYmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in XYfield])
+        XZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in XZfield])
+        YZmagPlane = np.array([[np.sqrt(coord[0]**2 + coord[1]**2 + coord[2]**2) for coord in row] for row in YZfield])
 
-        field_XY = np.transpose(field_XY, (2,0,1))
-        field_XZ = np.transpose(field_XZ, (2,0,1))
-        field_YZ = np.transpose(field_YZ, (2,0,1))
+        XYfield = np.transpose(XYfield, (2,0,1))
+        XZfield = np.transpose(XZfield, (2,0,1))
+        YZfield = np.transpose(YZfield, (2,0,1))
 
 
-    calculateTime = timeit.default_timer()
-
+    # Color normalization
+    vMax = max(nMode_slider.val,mMode_slider.val)
+    Norm = colors.Normalize(vmin=0, vmax=vMax)
 
     # Contour plot for the background
-    axXY.contourf(XYplane[0], XYplane[1], XYmagPlane, 100, vmin=0, vmax=1)
-    axXZ.contourf(XZplane[0], XZplane[1], XZmagPlane, 100, vmin=0, vmax=1)
-    axYZ.contourf(YZplane[0], YZplane[1], YZmagPlane, 100, vmin=0, vmax=1)
+    if backgButton.get_status()[0]:
+        axXY.contourf(XYplane[0], XYplane[1], XYmagPlane, 100, norm=Norm)
+        axXZ.contourf(XZplane[0], XZplane[1], XZmagPlane, 100, norm=Norm)
+        axYZ.contourf(YZplane[0], YZplane[1], YZmagPlane, 100, norm=Norm)
 
+    # Quiver plot
     if plotButton.value_selected == 'Arrow plot':
-        # Quiver plot
-        axXY.quiver(XYplane[0], XYplane[1], field_XY[0], field_XY[1], XYmagPlane, cmap='turbo', clim=[0,1])
-        axYZ.quiver(YZplane[0], YZplane[1], field_YZ[2], field_YZ[1], YZmagPlane, cmap='turbo', clim=[0,1])
-        axXZ.quiver(XZplane[0], XZplane[1], field_XZ[2], field_XZ[0], XZmagPlane, cmap='turbo', clim=[0,1])
-
-    else:
-        # Stream plot
-        axXY.streamplot(XYplane[0], XYplane[1], field_XY[0], field_XY[1], color=XYmagPlane, cmap='turbo')#, density=0.5)
-        axYZ.streamplot(YZplane[0], YZplane[1], field_YZ[2], field_YZ[1], color=YZmagPlane, cmap='turbo')#, density=0.5)
-        axXZ.streamplot(XZplane[0], XZplane[1], field_XZ[2], field_XZ[0], color=XZmagPlane, cmap='turbo')#, density=0.5)
-
-    # TODO Check if there is an error on the x/y density in streamplot
+        axXY.quiver(XYplane[0], XYplane[1], XYfield[0], XYfield[1], XYmagPlane, cmap='turbo', norm=Norm)
+        axYZ.quiver(YZplane[0], YZplane[1], YZfield[2], YZfield[1], YZmagPlane, cmap='turbo', norm=Norm)
+        axXZ.quiver(XZplane[0], XZplane[1], XZfield[2], XZfield[0], XZmagPlane, cmap='turbo', norm=Norm)
+    
+    # Stream plot (This one takes a lot longer to draw. The plot becomes very unresponsive...)
+    elif plotButton.value_selected == 'Streamplot':
+        axXY.streamplot(XYplane[0], XYplane[1], XYfield[0], XYfield[1], color=XYmagPlane, cmap='turbo', norm=Norm)
+        axYZ.streamplot(YZplane[0], YZplane[1], YZfield[2], YZfield[1], color=YZmagPlane, cmap='turbo', norm=Norm)
+        axXZ.streamplot(XZplane[0], XZplane[1], XZfield[2], XZfield[0], color=XZmagPlane, cmap='turbo', norm=Norm)
 
 
-    drawTime = timeit.default_timer()
+    if backgButton.get_status()[1]:
+        drawCrosshairs(xCoord_slider.val, yCoord_slider.val, zCoord_slider.val)
 
-    drawCrosshairs(xCoord_slider.val, yCoord_slider.val, zCoord_slider.val)
-
-    crosshairTime = timeit.default_timer()
     
     axXY.set_title('x-y plane')
     axYZ.set_title('y-z plane')
     axXZ.set_title('x-z plane')
 
-    titleTime = timeit.default_timer()
 
     plt.draw()
 
-    totalTime = timeit.default_timer()
-    print('Clearing took', round((clearTime - startTime)*1000), 'ms')
-    print('Calculations took', round((calculateTime - clearTime)*1000), 'ms')
-    print('Drawing took', round((drawTime - calculateTime)*1000), 'ms')
-    print('Drawing crosshairs took', round((crosshairTime - drawTime)*1000), 'ms')
-    print('Drawing titles took', round((titleTime - crosshairTime)*1000), 'ms')
-    print('The draw command took', round((totalTime - titleTime)*1000), 'ms')
-    print('Total function time:', round((totalTime - startTime)*1000), 'ms\n')
-
-E_field = 1
 
 update(0)
 
 
 # ********************************************
-# ****** Change handler **********************
+# ****** Change handlers *********************
 # ********************************************
 xCoord_slider.on_changed(update)
 yCoord_slider.on_changed(update)
@@ -241,5 +192,6 @@ mMode_slider.on_changed(update)
 nMode_slider.on_changed(update)
 fieldButton.on_clicked(update)
 plotButton.on_clicked(update)
+backgButton.on_clicked(update)
 
 plt.show()
